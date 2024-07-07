@@ -1,13 +1,13 @@
 
 # Secret Finder
 
-since i couldnt find a simpler method to do this...
+&nbsp;&nbsp;since i couldnt find a simpler method to do this...
 
 
 ## Arguments
 
-`-u`, `--url` - specify the url to fetch jsvascript files from
+&nbsp;&nbsp; `-u`, `--url` - url to request from
 
-`-f`, `--file` - a path to a file containing domains, `https://` is appended to the domains by default
+&nbsp;&nbsp; `-f`, `--file` - multiple urls from file `https://`
 
-`--proxy` - proxy server
+&nbsp;&nbsp; `--proxy` - proxy server
