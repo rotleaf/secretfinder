@@ -1,6 +1,6 @@
 use clap::{command, Parser};
 use regex::Regex;
-use reqwest::Client;
+use reqwest::{Client, Proxy};
 use std::{
     error::Error,
     fs::File,
@@ -17,13 +17,35 @@ struct Args {
     /// file to read from instead
     #[arg(short, long)]
     file: Option<String>,
+
+    /// provide a proxy
+    #[arg(long)]
+    proxy: Option<String>,
+}
+
+async fn make_client() -> Result<Client, Box<dyn Error>> {
+    let args: Args = Args::parse();
+
+    let client: Client = if let Some(proxy) = args.proxy {
+        let client: Client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .proxy(Proxy::all(&proxy)?)
+            .build()
+            .unwrap();
+        client
+    } else {
+        let client: Client = reqwest::Client::builder()
+            .danger_accept_invalid_certs(true)
+            .build()
+            .unwrap();
+        client
+    };
+    Ok(client)
 }
 
 async fn get_secrets(url: &str) -> Result<(), Box<dyn std::error::Error>> {
     println!(" > checking {url}");
-    let client: reqwest::Client = reqwest::Client::builder()
-        .danger_accept_invalid_certs(true)
-        .build()?;
+    let client: Client = make_client().await.unwrap();
     let response: reqwest::Response = client.get(url).send().await?;
 
     // secret patterns taken from :https://github.com/m4ll0k/SecretFinder/blob/master/SecretFinder.py:
@@ -79,10 +101,9 @@ async fn get_secrets(url: &str) -> Result<(), Box<dyn std::error::Error>> {
 }
 
 async fn fetch_js_links(url: &str, js_pattern: &regex::Regex) -> Result<(), Box<dyn Error>> {
-    let client: Client = Client::builder()
-        .danger_accept_invalid_certs(true)
-        .build()?;
-    let response = client.get(url).send().await;
+    let client: Client = make_client().await.unwrap();
+
+    let response: Result<reqwest::Response, reqwest::Error> = client.get(url).send().await;
 
     match response {
         Ok(ok) => match ok.text().await {
