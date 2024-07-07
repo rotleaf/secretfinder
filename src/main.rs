@@ -43,7 +43,7 @@ async fn get_secrets(url: &str) -> Result<(), Box<dyn std::error::Error>> {
     | (?P<twilio_api_key>SK[0-9a-fA-F]{32})
     | (?P<twilio_account_sid>AC[a-zA-Z0-9_\-]{32})
     | (?P<twilio_app_sid>AP[a-zA-Z0-9_\-]{32})
-    | (?P<paypal_braintree_access_token>access_token\$production\$[0-9a-z]{16}\$[0-9a-f]{32})
+    | (?P<paypal_braintree_access_token>access_token\$producti5+-on\$[0-9a-z]{16}\$[0-9a-f]{32})
     | (?P<square_oauth_secret>sq0csp-[ 0-9A-Za-z\-_]{43}|sq0[a-z]{3}-[0-9A-Za-z\-_]{22,43})
     | (?P<square_access_token>sqOatp-[0-9A-Za-z\-_]{22}|EAAA[a-zA-Z0-9]{60})
     | (?P<stripe_standard_api>sk_live_[0-9a-zA-Z]{24})
@@ -82,28 +82,34 @@ async fn fetch_js_links(url: &str, js_pattern: &regex::Regex) -> Result<(), Box<
     let client: Client = Client::builder()
         .danger_accept_invalid_certs(true)
         .build()?;
-    let response: reqwest::Response = client.get(url).send().await?;
+    let response = client.get(url).send().await;
 
-    if response.status().is_success() {
-        let html: String = response.text().await?;
+    match response {
+        Ok(ok) => match ok.text().await {
+            Ok(ok) => {
+                let mut all_vec: Vec<String> = Vec::new();
 
-        let mut all_vec: Vec<String> = Vec::new();
-
-        for cap in js_pattern.captures_iter(&html) {
-            let item: &str = &cap[1];
-            if !item.starts_with("http") {
-                let local_js: String = format!("{}{}", url, item);
-                all_vec.push(local_js);
-            } else {
-                all_vec.push(item.to_string());
+                for cap in js_pattern.captures_iter(&ok) {
+                    let item: &str = &cap[1];
+                    if !item.starts_with("http") {
+                        let local_js: String = format!("{}{}", url, item);
+                        all_vec.push(local_js);
+                    } else {
+                        all_vec.push(item.to_string());
+                    }
+                }
+                println!(" > found {} js urls", all_vec.len());
+                for url in all_vec {
+                    let _ = get_secrets(&url).await;
+                }
             }
+            Err(err) => {
+                println!(" * Error: {}", err);
+            }
+        },
+        Err(err) => {
+            println!(" * Error: {}", err);
         }
-        println!(" > found {} js urls", all_vec.len());
-        for url in all_vec {
-            let _ = get_secrets(&url).await;
-        }
-    } else {
-        println!("Request failed with status code: {}", response.status());
     }
 
     Ok(())
@@ -123,7 +129,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             let reader: BufReader<File> = BufReader::new(file);
 
             for domain in reader.lines() {
-                let url = "https://".to_owned() + &domain.unwrap();
+                let url: String = "https://".to_owned() + &domain.unwrap();
                 println!(" > using url {url}");
                 fetch_js_links(&url, &js_pattern).await?;
             }
